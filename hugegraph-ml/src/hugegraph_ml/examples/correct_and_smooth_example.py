@@ -21,7 +21,7 @@ from hugegraph_ml.tasks.node_classify import NodeClassify
 import argparse
 
 
-def agnn_example(n_epochs=200):
+def cs_example(n_epochs=200):
     hg2d = HugeGraph2DGL()
     graph = hg2d.convert_graph(vertex_label="CORA_vertex", edge_label="CORA_edge")
     if args.model == "mlp":
@@ -48,4 +48,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Base predictor(C&S)")
     parser.add_argument("--model", type=str, default="mlp", choices=["mlp", "linear"])
     args = parser.parse_args()
-    agnn_example()
+    cs_example()
