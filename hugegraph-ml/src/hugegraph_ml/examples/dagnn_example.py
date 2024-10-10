@@ -20,7 +20,7 @@ from hugegraph_ml.models.dagnn import DAGNN
 from hugegraph_ml.tasks.node_classify import NodeClassify
 
 
-def agnn_example(n_epochs=200):
+def dagnn_example(n_epochs=200):
     hg2d = HugeGraph2DGL()
     graph = hg2d.convert_graph(vertex_label="CORA_vertex", edge_label="CORA_edge")
     model = DAGNN(
@@ -36,4 +36,4 @@ def agnn_example(n_epochs=200):
 
 
 if __name__ == "__main__":
-    agnn_example()
+    dagnn_example()
