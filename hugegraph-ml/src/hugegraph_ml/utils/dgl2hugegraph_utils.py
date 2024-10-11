@@ -31,6 +31,7 @@ from dgl.data.utils import _get_dgl_url, download
 from pyhugegraph.api.graph import GraphManager
 from pyhugegraph.api.schema import SchemaManager
 from pyhugegraph.client import PyHugeClient
+import networkx as nx
 
 MAX_BATCH_NUM = 500
 
@@ -280,7 +281,69 @@ def import_hetero_graph_from_dgl(
     if len(edatas) > 0:
         _add_batch_edges(client_graph, edatas)
 
+def import_graph_from_nx(
+    dataset_name,
+    ip: str = "127.0.0.1",
+    port: str = "8080",
+    graph: str = "hugegraph",
+    user: str = "",
+    pwd: str = "",
+    graphspace: Optional[str] = None,
+):
+    dataset_name = dataset_name.upper()
+    if dataset_name == "CAVEMAN":
+        dataset = nx.connected_caveman_graph(20, 20)
+    else:
+        raise ValueError("dataset not supported")
 
+    client: PyHugeClient = PyHugeClient(
+        ip=ip, port=port, graph=graph, user=user, pwd=pwd, graphspace=graphspace
+    )
+    client_schema: SchemaManager = client.schema()
+    client_graph: GraphManager = client.graph()
+    # create property schema
+    # check props and create vertex label
+    vertex_label = f"{dataset_name}_vertex"
+    props_value = {}
+    client_schema.vertexLabel(vertex_label).useAutomaticId().ifNotExist().create()
+    # add vertices for batch (note MAX_BATCH_NUM)
+    idx_to_vertex_id = {}
+    vdatas = []
+    vidxs = []
+    for idx in dataset.nodes:
+        vdata = [vertex_label, {}]
+        vdatas.append(vdata)
+        vidxs.append(idx)
+        if len(vdatas) == MAX_BATCH_NUM:
+            idx_to_vertex_id.update(_add_batch_vertices(client_graph, vdatas, vidxs))
+            vdatas.clear()
+            vidxs.clear()
+    # add rest vertices
+    if len(vdatas) > 0:
+        idx_to_vertex_id.update(_add_batch_vertices(client_graph, vdatas, vidxs))
+
+    # add edges for batch
+    edge_label = f"{dataset_name}_edge"
+    client_schema.edgeLabel(edge_label).sourceLabel(vertex_label).targetLabel(
+        vertex_label
+    ).ifNotExist().create()
+    edatas = []
+    for edge in dataset.edges:
+        edata = [
+            edge_label,
+            idx_to_vertex_id[edge[0]],
+            idx_to_vertex_id[edge[1]],
+            vertex_label,
+            vertex_label,
+            {},
+        ]
+        edatas.append(edata)
+        if len(edatas) == MAX_BATCH_NUM:
+            _add_batch_edges(client_graph, edatas)
+            edatas.clear()
+    if len(edatas) > 0:
+        _add_batch_edges(client_graph, edatas)
+        
 def _add_batch_vertices(client_graph, vdatas, vidxs):
     vertices = client_graph.addVertices(vdatas)
     assert len(vertices) == len(vidxs)
@@ -373,3 +436,4 @@ if __name__ == "__main__":
     import_graph_from_dgl("CORA")
     import_graphs_from_dgl("MUTAG")
     import_hetero_graph_from_dgl("ACM")
+    import_graph_from_nx("CAVEMAN")
