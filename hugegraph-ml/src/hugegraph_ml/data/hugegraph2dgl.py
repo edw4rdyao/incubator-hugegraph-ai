@@ -26,7 +26,7 @@ from pyhugegraph.api.gremlin import GremlinManager
 from pyhugegraph.client import PyHugeClient
 
 from hugegraph_ml.data.hugegraph_dataset import HugeGraphDataset
-
+import networkx as nx
 
 class HugeGraph2DGL:
     def __init__(
@@ -149,7 +149,17 @@ class HugeGraph2DGL:
         }
         dataset_dgl = HugeGraphDataset(graphs=graphs, labels=graph_labels, info=graphs_info)
         return dataset_dgl
-
+        
+    def convert_graph_nx(
+        self,
+        vertex_label: str,
+        edge_label: str,
+    ):
+        vertices = self._graph_germlin.exec(f"g.V().hasLabel('{vertex_label}')")["data"]
+        edges = self._graph_germlin.exec(f"g.E().hasLabel('{edge_label}')")["data"]
+        graph_nx = self._convert_graph_from_v_e_nx(vertices=vertices, edges=edges)
+        return graph_nx
+        
     @staticmethod
     def _convert_graph_from_v_e(vertices, edges, feat_key=None, label_key=None, mask_keys=None):
         if len(vertices) == 0:
@@ -175,7 +185,22 @@ class HugeGraph2DGL:
                     graph_dgl.ndata[mk] = mask
         return graph_dgl
 
-
+    @staticmethod
+    def _convert_graph_from_v_e_nx(vertices, edges):
+        if len(vertices) == 0:
+            warnings.warn("This graph has no vertices", Warning)
+            return nx.Graph(())
+        vertex_ids = [v["id"] for v in vertices]
+        vertex_id_to_idx = {vertex_id: idx for idx, vertex_id in enumerate(vertex_ids)}
+        new_vertex_ids = [vertex_id_to_idx[id] for id in vertex_ids]
+        edge_list = [(edge["outV"], edge["inV"]) for edge in edges]
+        new_edge_list = [
+            (vertex_id_to_idx[src], vertex_id_to_idx[dst]) for src, dst in edge_list
+        ]
+        graph_nx = nx.Graph()
+        graph_nx.add_nodes_from(new_vertex_ids)
+        graph_nx.add_edges_from(new_edge_list)
+        return graph_nx
 if __name__ == "__main__":
     hg2d = HugeGraph2DGL()
     hg2d.convert_graph(vertex_label="CORA_vertex", edge_label="CORA_edge")
@@ -188,3 +213,4 @@ if __name__ == "__main__":
         vertex_labels=["ACM_paper_v", "ACM_author_v", "ACM_field_v"],
         edge_labels=["ACM_ap_e", "ACM_fp_e", "ACM_pa_e", "ACM_pf_e"]
     )
+    hg2d.convert_graph_nx(vertex_label="CAVEMAN_vertex", edge_label="CAVEMAN_edge")
